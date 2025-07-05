@@ -1,49 +1,49 @@
+import os
+
+# Step 1: Set environment variables before importing mlflow
+os.environ["MLFLOW_TRACKING_USERNAME"] = "PranavThakur1"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "f1539c3d1e3fbd4f576f8bb2c44496775ebb726e"
+
 import mlflow
-import mlflow.sklearn
 from sklearn.datasets import load_iris
-from sklearn.ensemble import RandomForestClassifier  # ✅ Use RandomForest
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
+import joblib  # Used to save model as .pkl
 
-import dagshub
-dagshub.init(repo_owner='PranavThakur1', repo_name='mlflow-dagshub-demo', mlflow=True)
+# Step 2: Set tracking URI to your DagsHub repo
+mlflow.set_tracking_uri("https://dagshub.com/PranavThakur1/mlflow-dagshub-demo.mlflow")
 
-# Set MLflow tracking URI and experiment
-mlflow.set_tracking_uri("https://dagshub.com/PranavThakur1/mlflow-dagshub-demo.mlflow")  # ✅ use .mlflow not .git
-mlflow.set_experiment("iris-rf")  # ✅ Changed experiment name to separate from iris-dt
-
-# Load the iris dataset
+# Step 3: Load dataset
 iris = load_iris()
 X = iris.data
 y = iris.target
-
-# Split the dataset
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Define parameters for Random Forest
-n_estimators = 100
-max_depth = 3
-
-# Start MLflow run
+# Step 4: Start MLflow run
 with mlflow.start_run():
-    # Train Random Forest model
-    rf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    # Train model
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
     rf.fit(X_train, y_train)
 
-    # Predict
+    # Make predictions and evaluate
     y_pred = rf.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
 
-    # Evaluate
-    accuracy = accuracy_score(y_test, y_pred)
+    # Log metric
+    mlflow.log_metric("accuracy", acc)
 
-    # Log parameters and metrics
-    mlflow.log_param("n_estimators", n_estimators)
-    mlflow.log_param("max_depth", max_depth)
-    mlflow.log_metric("accuracy", accuracy)
+    # Log parameters (optional)
+    mlflow.log_param("n_estimators", 100)
+    mlflow.log_param("random_state", 42)
 
-    # Confusion matrix plot
+    # Save model and log it as artifact
+    joblib.dump(rf, "random_forest_model.pkl")
+    mlflow.log_artifact("random_forest_model.pkl")
+
+    # Log confusion matrix
     cm = confusion_matrix(y_test, y_pred)
     plt.figure(figsize=(6, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
@@ -52,17 +52,12 @@ with mlflow.start_run():
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.title("Confusion Matrix")
+    plt.savefig("confusion_matrix_rf.png")
+    mlflow.log_artifact("confusion_matrix_rf.png")
 
-    cm_filename = "confusion_matrix_rf.png"
-    plt.savefig(cm_filename)
-    mlflow.log_artifact(cm_filename)
+    # Tag the run for easy filtering
+    mlflow.set_tag("author", "pranavv")
+    mlflow.set_tag("experiment", "iris-rf")
+    mlflow.set_tag("model", "random_forest")
 
-    # Log model
-    mlflow.sklearn.log_model(rf, "random_forest")
-
-    # Tags
-    mlflow.set_tag("author", "pranav")
-    mlflow.set_tag("model", "random forest")
-
-    # Print result
-    print("Accuracy:", accuracy)
+    print("Accuracy:", acc)
